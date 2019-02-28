@@ -1,0 +1,5 @@
+numpy
+Cython
+madmom
+pydub
+librosa
