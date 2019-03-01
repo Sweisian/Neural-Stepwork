@@ -18,7 +18,7 @@ def write_simfile(title="", artist="", music="", offset=-0.000000, bpms=0):
     # for i in range(30): #for now im saying there are 30 measures in the song
     #    measures += (generateRandomMeasure() + ",\n") #measures separated by commas
     # measures=measures[:-2] #remove last comma and new line character
-    notes = onsets_to_notes(get_onsets(music), bpms)
+    notes = onsets_to_notes(get_onsets(music), bpms,music)
     measures = notes_to_measures(notes, bpms, music)
     measures = measures.replace(".", "")
     measures = measures.replace(" ", "")
