@@ -2,12 +2,9 @@
 #convert ogg audio to .wav
 #remove folders with mp3 audio (harder to convert to wav)
 
-import os
 import soundfile as sf
 import shutil
 import os
-import pandas as pd
-import numpy as np
 import csv
 
 directory = os.fsencode("training")

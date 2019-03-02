@@ -3,3 +3,8 @@ Cython
 madmom
 pydub
 librosa
+os
+csv
+shutil
+soundfile
+CFFI 
