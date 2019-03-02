@@ -6,10 +6,14 @@ import os
 import soundfile as sf
 import shutil
 import os
+import pandas as pd
+import numpy as np
+import csv
+
+directory = os.fsencode("training")
 
 
 def file_folder_cleanup():
-    directory = os.fsencode("training")
     extentionsToRemove = ['.avi','.png','.dwi','.old','.ssc','.db','.lrc']
     audioExt = ['.ogg']
     for songFolders in os.scandir(directory):
@@ -52,4 +56,42 @@ def file_folder_cleanup():
             shutil.rmtree(songFolders.path.decode("utf-8"))
 
 def extract_chart_from_simfile():
-    
+    output = open('training.csv', 'w')
+    writer = csv.writer(output)
+    for songFolders in os.scandir(directory):
+        for entry in os.scandir(songFolders.path):
+            name = (os.path.splitext(entry.name))
+            print(name)
+            extention = name[1].decode("utf-8").lower()
+            if extention !='.sm':
+                continue
+            with open(entry.path, 'r') as simfile:
+                chart = simfile.read()
+                chart = chart.split("#NOTES:")
+                chart = chart[1]
+                chart = chart[chart.find("0000"):]
+                chart1D = ""
+                chart = chart.split("\n")
+                for line in chart:
+                    if line.find("measure") != -1:
+                        continue
+                    if len(line)!= 4:
+                        continue
+                    line = line.replace('2','1')
+                    line = line.replace('3','1')
+                    line = line.replace('M','0')
+                    #print(81,line)
+                    notes = ""
+                    for note in line:
+                        if note == '0':
+                            notes += "0"
+                        else:
+                            notes+="1"
+                    chart1D += notes
+                chart1D = chart1D[:-1]
+                writer.writerow(chart1D)
+                break
+    output.close()
+
+
+#extract_chart_from_simfile()
