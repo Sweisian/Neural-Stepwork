@@ -43,6 +43,4 @@ if __name__ == "__main__":
         name = os.path.basename(source_file).split(".wav")[0]
         print("Processing {}".format(name))
 
-        write_simfile(
-            title=name, music=source_file, bpms=get_bpm(source_file), dest=dest
-        )
+        write_simfile(source_file, dest, name, get_bpm(source_file))
