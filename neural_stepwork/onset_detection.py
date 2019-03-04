@@ -3,7 +3,6 @@ import math
 import numpy as np
 import random
 from madmom.features.onsets import OnsetPeakPickingProcessor, RNNOnsetProcessor
-from bisect import bisect_left
 
 
 def get_onsets(path):

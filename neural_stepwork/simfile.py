@@ -1,5 +1,6 @@
 from .onset_detection import get_onsets, notes_to_measures, onsets_to_notes
 
+
 def write_simfile(source, dest, name, bpm, artist="Unknown Artist", offset=-0.000000):
     song_metadata = "#TITLE:{0};\n#ARTIST:{1};\n#MUSIC:{2};\n#OFFSET:{3};\n#BPMS:0.0={4};\n#STOPS:;\n".format(
         name, artist, source, offset, bpm
