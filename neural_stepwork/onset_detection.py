@@ -45,7 +45,7 @@ def onsets_to_notes(onsets, bpm, path):
     :return: List of 16th note indices to place arrows at
     """
     possible_times = times16ths(path, bpm)
-    return [bisect_left(possible_times, onset) for onset in onsets]
+    return [np.searchsorted(possible_times, onset) for onset in onsets ]
 
 
 def notes_to_measures(notes, bpm, path):

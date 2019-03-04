@@ -77,7 +77,6 @@ def extract_chart_from_simfile():
                     line = line.replace('2','1')
                     line = line.replace('3','1')
                     line = line.replace('M','0')
-                    #print(81,line)
                     notes = ""
                     for note in line:
                         if note == '0':
