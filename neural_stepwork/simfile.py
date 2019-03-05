@@ -9,13 +9,7 @@ def write_simfile(source, dest, name, bpm, artist="Unknown Artist", offset=-0.00
     # setting difficulty mode to edit (instead of hard, expert, etc.)
     # setting play mode to dance-singles
     # the series of zeros represents groove radar values; these values aren't required for now
-    chart_metadata = (
-        "#NOTES:\n\tdance-single:\n\t:\n\tEdit:\n\t1:\n\n0.0,0.0,0.0,0.0,0.0:\n"
-    )
-    # measures = ""
-    # for i in range(30): #for now im saying there are 30 measures in the song
-    #    measures += (generateRandomMeasure() + ",\n") #measures separated by commas
-    # measures=measures[:-2] #remove last comma and new line character
+    chart_metadata = "#NOTES:\n\tdance-single:\n\t:\n\tEdit:\n\t1:\n\n0.0,0.0,0.0,0.0,0.0:\n"
     notes = onsets_to_notes(get_onsets(source), bpm, source)
     measures = notes_to_measures(notes, bpm, source)
     measures = measures.replace(".", "")
@@ -26,5 +20,3 @@ def write_simfile(source, dest, name, bpm, artist="Unknown Artist", offset=-0.00
         f.write(simfile_content)
 
 
-def generate_random_measure():
-    return "1000\n0100\n1000\n0010\n0100\n0001\n0010\n0100\n"
