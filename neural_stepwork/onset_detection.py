@@ -12,6 +12,14 @@ def get_onsets(path):
     return onsets
 
 
+def onsets_to_amplitude(onsets, path):
+    y, sr = librosa.load(path, sr=None)
+    samples_in_time = librosa.core.samples_to_time(y, sr=sr)
+    wanted_indexs = np.searchsorted(samples_in_time, onsets)
+    amp_array = y[wanted_indexs]
+    return amp_array
+
+
 def times16ths(path, bpm):
     times = []
     y, sr = librosa.load(path, sr=None)
