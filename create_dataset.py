@@ -102,7 +102,9 @@ def notes_parser(x):
     flat_notes = list()
     for measure in measures_clean:
         if len(measure) not in VALID_PULSES:
-            log.warning("Nonstandard subdivision {} detected, skipping".format(len(measure)))
+            log.warning(
+                "Nonstandard subdivision {} detected, skipping".format(len(measure))
+            )
             return None
         pad_length = int(PULSE_LENGTH / len(measure)) - 1
         for beat in measure:
@@ -228,6 +230,15 @@ if __name__ == "__main__":
     avg_difficulty = 0.0
     num_charts = 0
     num_files = 0
+
+    num_old_files = 0
+    for old_file in os.listdir(OUT_DIR):
+        file_path = os.path.join(OUT_DIR, old_file)
+        if os.path.isfile(file_path) and old_file.endswith(".json"):
+            os.unlink(file_path)
+            num_old_files += 1
+
+    print("Removed {} old json files".format(num_old_files))
 
     sm_files = list()
     for root, dirs, files in os.walk(IN_DIR):
