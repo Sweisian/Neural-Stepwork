@@ -11,7 +11,7 @@ json.encoder.FLOAT_REPR = lambda f: ("%.6f" % f)
 
 VALID_PULSES = set([4, 8, 16, 32])
 PULSE_LENGTH = 32
-REQUIRED_ATTRIBUTES = ["title", "offset", "bpms", "notes"]
+REQUIRED_ATTRIBUTES = ["title", "bpms", "notes"]
 IN_DIR = "./training/raw/"
 OUT_DIR = "./training/json/"
 EXTENSION = ".sm"
@@ -102,7 +102,7 @@ def notes_parser(x):
     flat_notes = list()
     for measure in measures_clean:
         if len(measure) not in VALID_PULSES:
-            log.warning("Nonstandard subdivision detected, skipping")
+            log.warning("Nonstandard subdivision {} detected, skipping".format(len(measure)))
             return None
         pad_length = int(PULSE_LENGTH / len(measure)) - 1
         for beat in measure:
@@ -246,9 +246,6 @@ if __name__ == "__main__":
 
         num_files += 1
 
-        bpms = attributes["bpms"]
-        offset = attributes["offset"]
-
         for sm_notes in attributes["notes"]:
             avg_difficulty += float(sm_notes["difficulty_fine"])
             num_charts += 1
@@ -257,7 +254,7 @@ if __name__ == "__main__":
             try:
                 out.write(json.dumps(attributes))
             except UnicodeDecodeError:
-                log.error("Unicode error in {}".format(sm_fp))
+                log.error("Unicode error in {}".format(file))
                 continue
     print(
         "Parsed {} stepfiles, {} charts, average difficulty {}".format(
