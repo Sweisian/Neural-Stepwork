@@ -70,6 +70,7 @@ def step_to_int(step_line):
 
 def train_network():
     """ Train a Neural Network to generate music """
+    #TODO: we need to write a function that actually finds the number of step_line variations actually used and assign it here
     n_vocab = 81
 
     network_input, network_output = prepare_sequences(n_vocab)
