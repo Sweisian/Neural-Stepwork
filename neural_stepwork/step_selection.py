@@ -30,77 +30,69 @@ def load_training_data():
 # for e in y_train[0]:
 #     print(e)
 
-def construct_sentences(x_train, y_train, SEQUENCE_LEN=96, STEP=1):
-        # cut the text in semi-redundant sequences of SEQUENCE_LEN words
-    sentences = []
-    next_step = []
-    ignored = 0
+# def construct_sequences_32nd_onsets(x_train, y_train, SEQUENCE_LEN=96, STEP=1):
+#         # cut the text in semi-redundant sequences of SEQUENCE_LEN words
+#     sequences = []
+#     next_step = []
+#     ignored = 0
+#
+#     for track_idx in range(0, len(x_train)):
+#         x_train_track = x_train[track_idx]
+#         y_train_track = y_train[track_idx]
+#
+#         for i in range(0, len(x_train_track) - SEQUENCE_LEN, STEP):
+#             sequences.append(x_train_track[i: i + SEQUENCE_LEN])
+#             next_step.append(y_train_track[i + SEQUENCE_LEN])
+#
+#     return sequences, next_step
 
-    for track_idx in range(0, len(x_train)):
-        x_train_track = x_train[track_idx]
+
+def construct_sequences_just_step_lines(y_train, SEQUENCE_LEN=96, STEP=1):
+    network_input  = []
+    network_output  = []
+
+    #TODO: temporarily restricting tracks that are sequenced
+    for track_idx in range(0, 3):
         y_train_track = y_train[track_idx]
 
-        for i in range(0, len(x_train_track) - SEQUENCE_LEN, STEP):
-            sentences.append(x_train_track[i: i + SEQUENCE_LEN])
-            next_step.append(y_train_track[i + SEQUENCE_LEN])
-
-    return sentences, next_step
-
-def shuffle_and_split_training_set(sentences_original, next_original, percentage_test=2):
-    # shuffle at unison
-    print('Shuffling sentences')
-
-    tmp_sentences = []
-    tmp_next_word = []
-    for i in np.random.permutation(len(sentences_original)):
-        tmp_sentences.append(sentences_original[i])
-        tmp_next_word.append(next_original[i])
-
-    cut_index = int(len(sentences_original) * (1.-(percentage_test/100.)))
-    x_train, x_test = tmp_sentences[:cut_index], tmp_sentences[cut_index:]
-    y_train, y_test = tmp_next_word[:cut_index], tmp_next_word[cut_index:]
-
-    print("Size of training set = %d" % len(x_train))
-    print("Size of test set = %d" % len(y_test))
-    return (x_train, y_train), (x_test, y_test)
+        for i in range(0, len(y_train_track) - SEQUENCE_LEN, STEP):
+            sequence_in = y_train_track[i:i + SEQUENCE_LEN]
+            sequence_out = y_train_track[i + SEQUENCE_LEN]
+            network_input.append(steps_to_int(sequence_in))
+            #print("Done with seq in", steps_to_int(sequence_in))
+            network_output.append(steps_to_int([sequence_out]))
+            #print("Done with seq out", steps_to_int([sequence_out]))
+    return network_input, network_output
 
 
-def step_to_int(y_train):
+def steps_to_int(step_lines):
+    line_to_int = {'0000': 0, '0001': 1, '0002': 2, '0010': 3, '0011': 4, '0012': 5, '0020': 6, '0021': 7, '0022': 8, '0100': 9, '0101': 10, '0102': 11, '0110': 12, '0111': 13, '0112': 14, '0120': 15, '0121': 16, '0122': 17, '0200': 18, '0201': 19, '0202': 20, '0210': 21, '0211': 22, '0212': 23, '0220': 24, '0221': 25, '0222': 26, '1000': 27, '1001': 28, '1002': 29, '1010': 30, '1011': 31, '1012': 32, '1020': 33, '1021': 34, '1022': 35, '1100': 36, '1101': 37, '1102': 38, '1110': 39, '1111': 40, '1112': 41, '1120': 42, '1121': 43, '1122': 44, '1200': 45, '1201': 46, '1202': 47, '1210': 48, '1211': 49, '1212': 50, '1220': 51, '1221': 52, '1222': 53, '2000': 54, '2001': 55, '2002': 56, '2010': 57, '2011': 58, '2012': 59, '2020': 60, '2021': 61, '2022': 62, '2100': 63, '2101': 64, '2102': 65, '2110': 66, '2111': 67, '2112': 68, '2120': 69, '2121': 70, '2122': 71, '2200': 72, '2201': 73, '2202': 74, '2210': 75, '2211': 76, '2212': 77, '2220': 78, '2221': 79, '2222': 80}
+    track_in_ints = np.zeros((0))
+    for step_line in step_lines:
+        line_as_string = ''
 
-    y_train_flat = np.zeros((0))
+        #print(step_line)
 
-    for track in y_train:
-        for step in track:
-            np.append(y_train_flat, step)
+        for char in step_line:
+            line_as_string = line_as_string + str(char)
 
-    print(len(y_train_flat))
-    print(type(y_train_flat))
+        #TODO: This is temporarily here until the parser is fixed.
+        if line_as_string in line_to_int:
+            track_in_ints = np.append(track_in_ints, [line_to_int[line_as_string]])
+        else:
+            track_in_ints = np.append(track_in_ints, [1])
 
-    # test_list = [1,2,3,4]
-    # print(type(test_list))
-    #
-    # step_set = set(test_list)
-    #
-    # for i in range(0,100):
-    #     print(y_train_flat[i])
-    #     print(type(y_train_flat[i]))
-
-
-    step_types = sorted(set(y_train_flat))
-
-    print("step Types",step_types)
-
-    step_to_int = dict((c, i) for i, c in enumerate(step_types))
-    int_to_step = dict((i, c) for i, c in enumerate(step_types))
-    return  step_to_int, int_to_step
+    return  track_in_ints
 
 
 x_train, y_train = load_training_data()
+network_input, network_output = construct_sequences_just_step_lines(y_train)
 
-step_to_int, int_to_step = step_to_int(y_train)
+print("network_input[0]: ", network_input)
+print("network_output[0]: ", network_output)
 
 
-sentences, next_words, sentences_test, next_words_test = shuffle_and_split_training_set(sentences, next_words)
+#sequences, next_words, sequences_test, next_words_test = shuffle_and_split_training_set(sequences, next_words)
 
 
 def train_model():
@@ -125,3 +117,22 @@ def predict_with_model(model,notes,int_to_line):
         seq_in = [int_to_line[value] for value in pattern]
         pattern.append(index)
         pattern = pattern[1:len(pattern)]
+
+
+def shuffle_and_split_training_set(sequences_original, next_original, percentage_test=2):
+    # shuffle at unison
+    print('Shuffling sequences')
+
+    tmp_sequences = []
+    tmp_next_word = []
+    for i in np.random.permutation(len(sequences_original)):
+        tmp_sequences.append(sequences_original[i])
+        tmp_next_word.append(next_original[i])
+
+    cut_index = int(len(sequences_original) * (1.-(percentage_test/100.)))
+    x_train, x_test = tmp_sequences[:cut_index], tmp_sequences[cut_index:]
+    y_train, y_test = tmp_next_word[:cut_index], tmp_next_word[cut_index:]
+
+    print("Size of training set = %d" % len(x_train))
+    print("Size of test set = %d" % len(y_test))
+    return (x_train, y_train), (x_test, y_test)
