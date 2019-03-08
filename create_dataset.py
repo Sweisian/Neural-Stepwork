@@ -3,7 +3,7 @@ import os
 import sys
 import traceback
 import json
-
+import numpy as np
 import logging as log
 
 json.encoder.FLOAT_REPR = lambda f: ("%.6f" % f)
@@ -82,7 +82,6 @@ def notes_parser(x):
     notes_split = notes_split[0]
     if len(notes_split) != 6:
         raise ValueError("Bad formatting within notes section")
-
     # parse/clean measures
     measures = [measure.splitlines() for measure in notes_split[5].split(",")]
     measures_clean = list()
@@ -110,16 +109,21 @@ def notes_parser(x):
         for beat in measure:
             new_beat = list()
             step_list = list(beat.lower())
+            if (len(step_list)!=4):
+                break
             for step in step_list:
                 if step == "1":
                     new_beat.append(1)
-                if step in ("2", "3", "4"):
+                elif step in ("2", "3", "4"):
                     new_beat.append(2)
                 else:
                     new_beat.append(0)
-                    flat_notes.append(new_beat)
+            flat_notes.append(new_beat)
+            print(new_beat)
+
             for _ in range(pad_length):
                 flat_notes.append([0, 0, 0, 0])
+                #flat_notes.append(['0000'])
     return {
         "type": str_parser(notes_split[0]),
         "desc_or_author": str_parser(notes_split[1]),
@@ -252,6 +256,10 @@ if __name__ == "__main__":
         name = os.path.basename(file).split(".")[0]
         out_path = os.path.join(OUT_DIR, name) + ".json"
         attributes = parse_sm_file(file)
+        try:
+            print(np.shape(attributes['notes'][0]['notes']))
+        except:
+            pass
         if not attributes:
             continue
 
