@@ -37,24 +37,16 @@ def load_training_data():
                 y.append(step_to_int(line))
             y_train.append(y)
     print("finished loading training data\nnumber of charts = ", len(y_train))
-    return y_train
 
 
-# def construct_sequences_32nd_onsets(x_train, y_train, sequence_length =96, step=1):
-#         # cut the text in semi-redundant sequences of sequence_length  words
-#     sequences = []
-#     next_step = []
-#     ignored = 0
-#
-#     for track_idx in range(0, len(x_train)):
-#         x_train_track = x_train[track_idx]
-#         y_train_track = y_train[track_idx]
-#
-#         for i in range(0, len(x_train_track) - sequence_length , step):
-#             sequences.append(x_train_track[i: i + sequence_length ])
-#             next_step.append(y_train_track[i + sequence_length ])
-#
-#     return sequences, next_step
+    s = set()
+    for y in y_train:
+        for note in y:
+            s.add(note)
+    print("finished finding vocab size")
+    return y_train,len(list(s))
+
+
 
 
 def step_to_int(step_line):
@@ -159,25 +151,16 @@ def step_to_int(step_line):
 
 def train_network():
     """ Train a Neural Network to generate music """
-    n_vocab = vocab_size()
+    y_train, n_vocab = load_training_data()
 
-    network_input, network_output = prepare_sequences(n_vocab)
+    network_input, network_output = prepare_sequences(y_train, n_vocab)
 
     model = create_network(network_input, n_vocab)
 
     train(model, network_input, network_output)
 
 
-def vocab_size():
-    y_train = load_training_data()
-    s = set()
-    for y in y_train:
-        for note in y:
-            s.add(note)
-    return len(list(s))
-
-
-def prepare_sequences(n_vocab):
+def prepare_sequences(y_train, n_vocab):
     """
     Create input sequences and their outputs for the model, making sure that each sequence
     ends with a note that has at least one arrow
@@ -197,8 +180,8 @@ def prepare_sequences(n_vocab):
             window_start = window_end - 100
             sequence_in = track[window_start:window_end]
             sequence_out = track[window_end]
-            network_input.append([step_to_int(step_line) for step_line in sequence_in])
-            network_output.append(step_to_int(sequence_out))
+            network_input.append(sequence_in)
+            network_output.append(sequence_out)
 
     n_patterns = len(network_input)
     print("num patterns = ", n_patterns)
