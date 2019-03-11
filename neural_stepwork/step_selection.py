@@ -161,9 +161,8 @@ def train(model, network_input, network_output):
         callbacks=callbacks_list,
     )
     print("finished fitting model")
-<<<<<<< HEAD
 
-        # serialize model to JSON
+    # serialize model to JSON
     model_json = model.to_json()
     with open("model.json", "w") as json_file:
         json_file.write(model_json)
@@ -175,12 +174,10 @@ def train(model, network_input, network_output):
     # print("starting to predict")
     # prediction = model.predict(np.array(generate_random_sequence()))
     # print("prediction: ", prediction)
-=======
     # model.save("my_model.h5")
     print("starting to predict")
     prediction = model.predict(generate_random_sequence())
     print("prediction: ", decode_step(np.argmax(prediction)))
->>>>>>> 1b9bd6ec967f18c501a7aea121fdd7c5ee8f8fcd
 
 
 if __name__ == "__main__":
