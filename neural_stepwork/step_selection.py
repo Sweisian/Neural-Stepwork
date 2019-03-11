@@ -69,7 +69,6 @@ def decode_step(num):
 def train_network():
     """ Train a Neural Network to generate music """
     y_train, n_vocab = load_training_data()
-    y_train = [y_train[0]]
 
     network_input, network_output = prepare_sequences(y_train, n_vocab)
 
