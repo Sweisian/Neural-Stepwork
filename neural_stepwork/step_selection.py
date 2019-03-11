@@ -147,10 +147,19 @@ def train(model, network_input, network_output):
         callbacks=callbacks_list,
     )
     print("finished fitting model")
-    model.save("my_model.h5")
-    print("starting to predict")
-    prediction = model.predict(np.array(generate_random_sequence()))
-    print("prediction: ", prediction)
+
+        # serialize model to JSON
+    model_json = model.to_json()
+    with open("model.json", "w") as json_file:
+        json_file.write(model_json)
+    # serialize weights to HDF5
+    model.save_weights("model.h5")
+    print("Saved model to disk")
+
+
+    # print("starting to predict")
+    # prediction = model.predict(np.array(generate_random_sequence()))
+    # print("prediction: ", prediction)
 
 
 if __name__ == "__main__":
