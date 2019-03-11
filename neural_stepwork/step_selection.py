@@ -51,7 +51,7 @@ def encode_step(step_line):
     :param step_line: List of ints in [0, 2]
     :return: Int representing feature encoding
     """
-    return int("".join(step_line), base=3)
+    return int("".join(str(x) for x in step_line), base=3)
 
 
 def train_network():
