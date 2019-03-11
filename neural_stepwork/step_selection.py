@@ -79,7 +79,7 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
 
     for track in y_train:
         for window_start in range(0, len(track) - sequence_length):
-            if not any(track[window_start + sequence_length]):
+            if track[window_start + sequence_length] == 0:
                 continue
             sequence_in = track[window_start:window_start + sequence_length]
             sequence_out = track[window_start + sequence_length]
