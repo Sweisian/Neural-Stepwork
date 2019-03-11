@@ -37,12 +37,7 @@ def load_training_data():
             y_train.append(y)
     print("finished loading training data\nnumber of charts = ", len(y_train))
 
-    s = set()
-    for y in y_train:
-        for note in y:
-            s.add(note)
-    print("finished finding vocab size")
-    return y_train, len(list(s))
+    return y_train, encode_step([2, 2, 2, 2]) + 1
 
 
 def encode_step(step_line):
@@ -51,12 +46,30 @@ def encode_step(step_line):
     :param step_line: List of ints in [0, 2]
     :return: Int representing feature encoding
     """
-    return int("".join(step_line), base=3)
+    return int("".join(str(x) for x in step_line), base=3)
+
+
+def decode_step(num):
+    """
+    Convert int feature encoding to step line
+    :param num: Int representing feature encoding
+    :return: List of ints in [0, 2]
+    """
+    if num == 0:
+        return [0, 0, 0, 0]
+    step_line = []
+    while num:
+        num, r = divmod(num, 3)
+        step_line.append(r)
+
+    step_line += [0 for _ in range(4 - len(step_line))]
+    return list(reversed(step_line))
 
 
 def train_network():
     """ Train a Neural Network to generate music """
     y_train, n_vocab = load_training_data()
+    y_train = [y_train[0]]
 
     network_input, network_output = prepare_sequences(y_train, n_vocab)
 
@@ -81,7 +94,7 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
         for window_start in range(0, len(track) - sequence_length):
             if track[window_start + sequence_length] == 0:
                 continue
-            sequence_in = track[window_start:window_start + sequence_length]
+            sequence_in = track[window_start : window_start + sequence_length]
             sequence_out = track[window_start + sequence_length]
             network_input.append(sequence_in)
             network_output.append(sequence_out)
@@ -93,7 +106,7 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
     # normalize input
     network_input = network_input / float(n_vocab)
 
-    network_output = np_utils.to_categorical(network_output)
+    network_output = np_utils.to_categorical(network_output, num_classes=n_vocab)
     print("finished preparing sequences")
     return network_input, network_output
 
@@ -129,6 +142,7 @@ def generate_random_sequence():
     seq = np.zeros(100)
     for i in range(len(seq)):
         seq[i] = mapping[random.randint(0, 3)]
+    return np.reshape(seq, (1, 100, 1))
 
 
 def train(model, network_input, network_output):
@@ -147,6 +161,7 @@ def train(model, network_input, network_output):
         callbacks=callbacks_list,
     )
     print("finished fitting model")
+<<<<<<< HEAD
 
         # serialize model to JSON
     model_json = model.to_json()
@@ -160,6 +175,12 @@ def train(model, network_input, network_output):
     # print("starting to predict")
     # prediction = model.predict(np.array(generate_random_sequence()))
     # print("prediction: ", prediction)
+=======
+    # model.save("my_model.h5")
+    print("starting to predict")
+    prediction = model.predict(generate_random_sequence())
+    print("prediction: ", decode_step(np.argmax(prediction)))
+>>>>>>> 1b9bd6ec967f18c501a7aea121fdd7c5ee8f8fcd
 
 
 if __name__ == "__main__":
