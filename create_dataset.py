@@ -109,7 +109,7 @@ def notes_parser(x):
         for beat in measure:
             new_beat = list()
             step_list = list(beat.lower())
-            if (len(step_list)!=4):
+            if len(step_list) != 4:
                 break
             for step in step_list:
                 if step == "1":
@@ -123,7 +123,7 @@ def notes_parser(x):
 
             for _ in range(pad_length):
                 flat_notes.append([0, 0, 0, 0])
-                #flat_notes.append(['0000'])
+                # flat_notes.append(['0000'])
     return {
         "type": str_parser(notes_split[0]),
         "desc_or_author": str_parser(notes_split[1]),
@@ -257,7 +257,7 @@ if __name__ == "__main__":
         out_path = os.path.join(OUT_DIR, name) + ".json"
         attributes = parse_sm_file(file)
         try:
-            print(np.shape(attributes['notes'][0]['notes']))
+            print(np.shape(attributes["notes"][0]["notes"]))
         except:
             pass
         if not attributes:
