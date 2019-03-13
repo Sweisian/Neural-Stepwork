@@ -170,15 +170,21 @@ def train(model, network_input, network_output):
     print("Saved model to disk")
 
 
-    # print("starting to predict")
-    # prediction = model.predict(np.array(generate_random_sequence()))
-    # print("prediction: ", prediction)
-    # model.save("my_model.h5")
-    print("starting to predict")
-    prediction = model.predict(generate_random_sequence())
-    print("prediction: ", decode_step(np.argmax(prediction)))
 
+def load_trained_model():
+    y_train, n_vocab = load_training_data()
+    network_input, network_output = prepare_sequences(y_train, n_vocab)
+    model = create_network(network_input, n_vocab)
+    model.load_weights("../neural_stepwork/my_model.h5")
+    print("starting to predict")
+    for i in range(50):
+        seq = generate_random_sequence()
+        seq = seq/(n_vocab-1)
+        prediction = model.predict(seq)
+        print(decode_step(np.argmax(prediction)))
 
 if __name__ == "__main__":
 
-    train_network()
+    #train_network()
+    load_trained_model()
+
