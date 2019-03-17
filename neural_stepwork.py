@@ -5,6 +5,7 @@ from shutil import copy
 
 from neural_stepwork.simfile import write_simfile
 from neural_stepwork.find_bpm import get_bpm
+from neural_stepwork.note_predictor import generate
 
 PREFIX = "Run_"
 OUTPUT_DIR = "output/"
@@ -43,4 +44,7 @@ if __name__ == "__main__":
         name = os.path.basename(source_file).split(".wav")[0]
         print("Processing {}".format(name))
 
-        write_simfile(source_file, dest, name, get_bpm(source_file))
+        bpm = get_bpm(source_file)
+        n_vocab = 81
+        notes = generate(source_file, n_vocab)
+        write_simfile("output/" + name + ".sm",notes,bpm)

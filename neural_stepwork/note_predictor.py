@@ -5,11 +5,20 @@ from keras.layers import Dropout
 from keras.layers import LSTM
 from keras.layers import Activation
 from keras.models import model_from_json
-from onset_detection import times16ths ,get_onsets, notes_to_measures, onsets_to_notes
-from find_bpm import get_bpm
+from neural_stepwork.onset_detection import times16ths ,get_onsets, notes_to_measures, onsets_to_notes
+from neural_stepwork.find_bpm import get_bpm
 
-def generate(binary_onset_array, n_vocab):
-    #TODO: handle the step-to-int mapping in some way.
+def generate(path, n_vocab):
+
+    #TODO: make this a funcion in onset_detection that returns the binary_onset_array
+    onsets = get_onsets(path)
+    bpm = get_bpm(path)
+    notes = onsets_to_notes(onsets, bpm, path)
+    num_16ths = len(times16ths(path, bpm))
+    binary_onset_array = numpy.zeros(num_16ths + 1)
+    for i in notes:
+        binary_onset_array[i] = 1
+
     model = load_model()
     prediction_output = generate_steps(model, n_vocab, binary_onset_array)
 
@@ -18,12 +27,12 @@ def generate(binary_onset_array, n_vocab):
 
 def load_model():
         # load json and create model
-    json_file = open('model.json', 'r')
+    json_file = open('neural_stepwork/model.json', 'r')
     loaded_model_json = json_file.read()
     json_file.close()
     loaded_model = model_from_json(loaded_model_json)
     # load weights into new model
-    loaded_model.load_weights("model.h5")
+    loaded_model.load_weights("neural_stepwork/model.h5")
     print("Loaded model from disk")
 
     return loaded_model
@@ -64,7 +73,6 @@ def generate_steps(model, n_vocab, onsets):
             pattern = pattern[1:len(pattern)]
 
         elif int(ele) == 1:
-            #TODO: need to reshape before predicting
             prediction_input = numpy.reshape(pattern, (1, len(pattern), 1))
             prediction_input = prediction_input / float(n_vocab)
 
@@ -83,18 +91,7 @@ def generate_steps(model, n_vocab, onsets):
     return prediction_output
 
 
-
-
 if __name__ == '__main__':
-    source = "../songs/sucker.wav"
+    path = "../songs/sucker.wav"
     n_vocab = 81
-    onsets = get_onsets(source)
-    bpm = get_bpm(source)
-    notes = onsets_to_notes(onsets, bpm, source)
-    num_16ths = len(times16ths(source, bpm))
-    binary_onset_array = numpy.zeros(num_16ths + 1)
-    for i in notes:
-        binary_onset_array[i] = 1
-    #print(notes)
-
-    print(generate(binary_onset_array, n_vocab))
+    print(generate(path, n_vocab))
