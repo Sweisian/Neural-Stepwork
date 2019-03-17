@@ -1,29 +1,92 @@
-from .onset_detection import get_onsets, notes_to_measures, onsets_to_notes
+from numpy import array_split
 
 
-def write_simfile(source, dest, name, bpm, artist="Unknown Artist", offset=-0.000000):
-
-    # setting difficulty level to 1
-    # setting difficulty mode to edit (instead of hard, expert, etc.)
-    # setting play mode to dance-singles
-    # the series of zeros represents groove radar values; these values aren't required for now
-    chart_metadata = "#NOTES:\n\tdance-single:\n\t:\n\tEdit:\n\t1:\n\n0.0,0.0,0.0,0.0,0.0:\n"
-    onsets = get_onsets(source)
-    #offset = onsets[0]
-    #onsets = onsets - offset
-    notes = onsets_to_notes(onsets, bpm, source)
-    measures = notes_to_measures(notes, bpm, source)
-    measures = measures.replace(".", "")
-    measures = measures.replace(" ", "")
-
-
-    song_metadata = "#TITLE:{0};\n#ARTIST:{1};\n#MUSIC:{2};\n#OFFSET:{3};\n#BPMS:0.0={4};\n#STOPS:;\n".format(
-        name, artist, source, offset, bpm
+def write_metadata(file, title, artist, source, offset, bpm):
+    """
+    Writes chart metadata to file
+    :param file: File to write to
+    :param title: Title of the track
+    :param artist: Name of the track's artist
+    :param source: Source audio file
+    :param offset: Time of the track (in seconds) to start at
+    :param bpm: BPM of the track
+    """
+    metadata = (
+        f"#TITLE:{title};\n"
+        f"#ARTIST:{artist};\n"
+        f"#MUSIC:{source};\n"
+        f"#OFFSET:{offset};\n"
+        f"#BPMS:0.0={bpm};\n"
     )
 
-    simfile_content = song_metadata + chart_metadata + measures
-
-    with open(dest + name + ".sm", "w") as f:
-        f.write(simfile_content)
+    with open(file, "a") as sm:
+        sm.write(metadata)
 
 
+def write_notes_header(file, creator="Neural-Stepwork", rating="Edit", difficulty=1):
+    """
+    Writes note header to file
+    :param file: File to write to
+    :param creator: Source of the stepfile
+    :param rating: Rough description of difficulty
+    :param difficulty: Numeric description of difficulty
+    """
+    # Zeroes represent groove radar values, which are currently unused
+    header = (
+        "#NOTES:\n"
+        "\tdance-single:\n"
+        f"\t{creator}:\n"
+        f"\t{rating}:\n"
+        f"\t{difficulty}:\n"
+        f"\t0.0,0.0,0.0,0.0,0.0:\n"
+    )
+
+    with open(file, "a") as sm:
+        sm.write(header)
+
+
+def write_notes(file, notes, measure_length=32):
+    """
+    Writes measures, separated by commas, to file
+    :param file: File to write to
+    :param notes: List-like with shape (num_notes, 4)
+    :param measure_length: Number of notes to include in a measure
+    """
+    # Pad notes to be a multiple of measure_length
+    if len(notes) % measure_length != 0:
+        for _ in range(measure_length - (len(notes) % measure_length)):
+            notes.append([0, 0, 0, 0])
+
+    measures = array_split(notes, len(notes) / measure_length)
+    note_format = "{}{}{}{}\n"
+    measure_format = (note_format * measure_length)
+
+    with open(file, "a") as sm:
+        sm.writelines(measure_format.format(*m.flatten()) + ",\n" for m in measures[:-1])
+        sm.write(measure_format.format(*measures[-1].flatten()) + ";")
+
+
+def write_simfile(
+    file,
+    notes,
+    bpm,
+    title="Unknown Track",
+    artist="Unknown Artist",
+    source="Sorce Unavailable",
+    offset=-0.000_000,
+):
+    """
+    Writes a sim file that can be imported into StepMania
+    :param file: File to write to, creating / overwriting it
+    :param notes: List-like with shape (num_notes, 4)
+    :param bpm: BPM of the track
+    :param title: Title of the track
+    :param artist: Name of the track's artist
+    :param source: Source audio file
+    :param offset: Time of the track (in seconds) to start at
+    """
+    # Make sure the file exists and is empty
+    open(file, "w").close()
+    write_metadata(file, title, artist, source, offset, bpm)
+    write_notes_header(file)
+    write_notes(file, notes)
