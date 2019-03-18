@@ -1,6 +1,6 @@
 import os
 import json
-from .pitch_change import pitch_change
+from pitch_change import pitch_change
 import pickle
 from sklearn.tree import DecisionTreeClassifier
 
@@ -10,19 +10,19 @@ def load_training_data():
     :return: y_train, which is a list (each song) of lists (every onset in song) of lists (features at each onset)
              **first element in each song's list is song bpm
     """
-    difficulties = ["Hard", "Medium", "Challenge"]
-    cwd = os.getcwd()
-    DATA_DIR = cwd + "/training/json"
-    #DATA_DIR =  "../training/json"
+    difficulties = ["hard", "medium", "challenge"]
+    #cwd = os.getcwd()
+    #DATA_DIR = cwd + "/training/json"
+    DATA_DIR =  "../training/json"
     y_train = list()
-    k = 0
     for file in os.listdir(DATA_DIR):
         if not file.endswith(".json"):
             continue
         with open(os.path.join(DATA_DIR, file)) as f:
             step_file = json.load(f)
         for track in step_file["notes"]:
-            if track["difficulty_coarse"] not in difficulties:
+            rating = track["difficulty_coarse"].lower()
+            if rating not in difficulties:
                 continue
             track = track["notes"]
             if len(track) == 0:
@@ -41,17 +41,17 @@ def load_training_data():
                     y+=[[time,step,0]]
                 lineNum += 1
             name = os.path.basename(file).split(".json")[0]
-            path = cwd + "/training/raw" + "/" + name + "/" + name + ".wav"
+            path = "../training/raw" + "/" + name + "/" + name + ".wav"
             print(52,path)
-            pitches = pitch_change(path, times)
-            for i in range(1,len(pitches)):
-                y[i][2]=pitches[i]
-            y_train.append(y)
-            if k == 3:
-                return y_train, 81
-        k+=1
+            try:
+                pitches = pitch_change(path, times,rating)
+                for i in range(1,len(pitches)):
+                    y[i][2]=pitches[i]
+                y_train.append(y)
+            except:
+                continue
     print("finished loading training data\nnumber of charts = ", len(y_train))
-    return y_train, encode_step([2, 2, 2, 2]) + 1
+    return y_train
 
 
 def lineNumToTime(bpms,priorTime):
@@ -175,4 +175,4 @@ def predict_decision_tree(dt,fv):
 
 
 if __name__ == "__main__":
-    pass
+    train_decision_tree()
