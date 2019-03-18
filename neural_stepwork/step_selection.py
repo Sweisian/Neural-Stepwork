@@ -1,6 +1,6 @@
 import os
 import json
-from pitch_change import pitch_change
+from .pitch_change import pitch_change
 import pickle
 from sklearn.tree import DecisionTreeClassifier
 

@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.signal import stft
 import librosa
-from onset_detection import get_onsets, onsets_to_notes
-from find_bpm import get_bpm
+from .onset_detection import get_onsets, onsets_to_notes
+from .find_bpm import get_bpm
 
 
 def pitch_change(path,onsets,rating):
