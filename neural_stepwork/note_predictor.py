@@ -52,7 +52,7 @@ def generate_dt(path,onsets,bpm,rating):
     for i in range(1,len(pitches)):
         seed = random.randint(1, 20) #some randomness okay to prevent cycles/too much repetition in arrow types
         if seed < 7:
-            prevNote = random.choice([1,3,9,27])
+            prevNote = random.choice([1,3,9,27,27,27,27])
         fv = [prevNote,onsets[i] - onsets[i-1],onsets[i+1]-onsets[i],bpm,pitches[i-1]]
         prevNote = predict_decision_tree(dt,fv)[0]
         steps.append(prevNote)
