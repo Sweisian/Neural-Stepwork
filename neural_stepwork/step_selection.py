@@ -37,12 +37,7 @@ def load_training_data():
             y_train.append(y)
     print("finished loading training data\nnumber of charts = ", len(y_train))
 
-    s = set()
-    for y in y_train:
-        for note in y:
-            s.add(note)
-    print("finished finding vocab size")
-    return y_train, len(list(s))
+    return y_train, encode_step([1, 1, 1, 1]) + 1
 
 
 def encode_step(step_line):
@@ -51,12 +46,32 @@ def encode_step(step_line):
     :param step_line: List of ints in [0, 2]
     :return: Int representing feature encoding
     """
-    return int("".join(step_line), base=3)
+    step_line = [1 if step == 2 else step for step in step_line]
+    return int("".join(str(x) for x in step_line), base=2)
+
+
+def decode_step(num):
+    """
+    Convert int feature encoding to step line
+    :param num: Int representing feature encoding
+    :return: List of ints in [0, 2]
+    """
+    if num == 0:
+        return [0, 0, 0, 0]
+    step_line = []
+    while num:
+        num, r = divmod(num, 2)
+        step_line.append(r)
+
+    step_line += [0 for _ in range(4 - len(step_line))]
+    return list(reversed(step_line))
 
 
 def train_network():
     """ Train a Neural Network to generate music """
     y_train, n_vocab = load_training_data()
+
+    y_train = y_train[:1]
 
     network_input, network_output = prepare_sequences(y_train, n_vocab)
 
@@ -65,11 +80,11 @@ def train_network():
     train(model, network_input, network_output)
 
 
-def prepare_sequences(y_train, n_vocab, sequence_length=100):
+def prepare_sequences(data, n_vocab, sequence_length=10):
     """
     Create input sequences and their outputs for the model, making sure that each sequence
     ends with a note that has at least one arrow
-    :param y_train: List of list of its representing notes
+    :param data: List of list of its representing notes
     :param n_vocab: Number of different possible notes
     :param sequence_length: Number of notes to include in each sequence
     :return: List of lists of notes (as ints), list of corresponding following notes
@@ -77,11 +92,19 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
     network_input = []
     network_output = []
 
-    for track in y_train:
-        for window_start in range(0, len(track) - sequence_length):
-            if not any(track[window_start + sequence_length]):
+    cleaned_data = []
+    for track in data:
+        cleaned_track = []
+        for note in track:
+            if note == 0:
                 continue
-            sequence_in = track[window_start:window_start + sequence_length]
+            categorical_note = np_utils.to_categorical(note, num_classes=n_vocab)
+            cleaned_track.append(categorical_note)
+        cleaned_data.append(cleaned_track)
+
+    for track in cleaned_data:
+        for window_start in range(0, len(track) - sequence_length):
+            sequence_in = track[window_start : window_start + sequence_length]
             sequence_out = track[window_start + sequence_length]
             network_input.append(sequence_in)
             network_output.append(sequence_out)
@@ -89,13 +112,8 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
     n_patterns = len(network_input)
     print("num patterns = ", n_patterns)
     # reshape the input into a format compatible with LSTM layers
-    network_input = np.reshape(network_input, (n_patterns, sequence_length, 1))
-    # normalize input
-    network_input = network_input / float(n_vocab)
-
-    network_output = np_utils.to_categorical(network_output)
-    print("finished preparing sequences")
-    return network_input, network_output
+    # network_input = np.reshape(network_input, (n_patterns, sequence_length, 1))
+    return np.array(network_input), np.array(network_output)
 
 
 def create_network(network_input, n_vocab):
@@ -103,32 +121,25 @@ def create_network(network_input, n_vocab):
     model = Sequential()
     model.add(
         LSTM(
-            512,
+            128,
             input_shape=(network_input.shape[1], network_input.shape[2]),
             return_sequences=True,
         )
     )
-    model.add(Dropout(0.3))
-    model.add(LSTM(128, return_sequences=True))
-    # model.add(LSTM(512, return_sequences=True))
-    model.add(Dropout(0.3))
     model.add(LSTM(128))
-    # model.add(LSTM(512))
-    model.add(Dense(64))
-    # model.add(Dense(256))
-    model.add(Dropout(0.3))
+    #model.add(Dense(64))
     model.add(Dense(n_vocab))
-    model.add(Activation("softmax"))
-    model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
-    print("finished making model\n")
+    model.compile(loss="categorical_crossentropy", optimizer="rmsprop", metrics=['accuracy'])
+    print("finished making model")
     return model
 
 
-def generate_random_sequence():
-    mapping = {0: 1, 1: 3, 2: 9, 3: 27}
-    seq = np.zeros(100)
-    for i in range(len(seq)):
-        seq[i] = mapping[random.randint(0, 3)]
+def generate_random_sequence(n_vocab, seq_len):
+
+    seq = []
+    for i in range(seq_len):
+        seq.append(np_utils.to_categorical(random.randint(0, 4), num_classes=n_vocab))
+    return seq
 
 
 def train(model, network_input, network_output):
@@ -142,17 +153,42 @@ def train(model, network_input, network_output):
     model.fit(
         network_input,
         network_output,
-        epochs=1,
-        batch_size=1600,
+        epochs=100,
+        batch_size=16,
         callbacks=callbacks_list,
     )
     print("finished fitting model")
-    model.save("my_model.h5")
-    print("starting to predict")
-    prediction = model.predict(np.array(generate_random_sequence()))
-    print("prediction: ", prediction)
 
+    # serialize model to JSON
+    model_json = model.to_json()
+    with open("model.json", "w") as json_file:
+        json_file.write(model_json)
+    # serialize weights to HDF5
+    model.save_weights("model.h5")
+    print("Saved model to disk")
+
+
+def load_trained_model():
+    n_vocab = 16
+    seq_len = 10
+    y_train, n_vocab = load_training_data()
+    network_input, network_output = prepare_sequences(y_train, n_vocab)
+    model = create_network(network_input, n_vocab)
+    model.load_weights("model.h5")
+    print("starting to predict")
+    seq = generate_random_sequence(n_vocab, seq_len)
+    print(seq)
+    for i in range(100):
+        reshaped = np.reshape(seq, (1, seq_len, n_vocab))
+        prediction = model.predict(reshaped)
+        #print(prediction)
+        encoded_step = np.argmax(prediction)
+        print(decode_step(encoded_step))
+        next_step = np_utils.to_categorical(encoded_step, num_classes=n_vocab)
+        # print(next_step)
+        seq = seq[1:] + [next_step]
 
 if __name__ == "__main__":
-
     train_network()
+    load_trained_model()
+
