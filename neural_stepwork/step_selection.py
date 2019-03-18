@@ -1,43 +1,84 @@
-import numpy as np
 import os
 import json
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import Dropout
-from keras.layers import LSTM
-from keras.layers import Activation
-from keras.utils import np_utils
-from keras.callbacks import ModelCheckpoint
-
-import random
+from .pitch_change import pitch_change
+import pickle
+from sklearn.tree import DecisionTreeClassifier
 
 
 def load_training_data():
     """
-    y_train is a list of lists, and each list is a simfile chart as a series of ints (each int maps to a possible step line)
-    :return: y_train
+    :return: y_train, which is a list (each song) of lists (every onset in song) of lists (features at each onset)
+             **first element in each song's list is song bpm
     """
     difficulties = ["Hard", "Medium", "Challenge"]
-    DATA_DIR = "../training/json"
+    cwd = os.getcwd()
+    DATA_DIR = cwd + "/training/json"
+    #DATA_DIR =  "../training/json"
     y_train = list()
+    k = 0
     for file in os.listdir(DATA_DIR):
         if not file.endswith(".json"):
             continue
         with open(os.path.join(DATA_DIR, file)) as f:
             step_file = json.load(f)
         for track in step_file["notes"]:
-            y = []
             if track["difficulty_coarse"] not in difficulties:
                 continue
             track = track["notes"]
             if len(track) == 0:
                 continue
+            bpms = step_file['bpms']
+            y = [maxBpm(bpms)]
+            lineNum = 0
+            priorTime = 0
+            times = []
             for line in track:
-                y.append(encode_step(line))
+                step = encode_step(line)
+                if step != 0:
+                    time = lineNumToTime(bpms,priorTime)
+                    times.append(time)
+                    priorTime = time
+                    y+=[[time,step,0]]
+                lineNum += 1
+            name = os.path.basename(file).split(".json")[0]
+            path = cwd + "/training/raw" + "/" + name + "/" + name + ".wav"
+            print(52,path)
+            pitches = pitch_change(path, times)
+            for i in range(1,len(pitches)):
+                y[i][2]=pitches[i]
             y_train.append(y)
+            if k == 3:
+                return y_train, 81
+        k+=1
     print("finished loading training data\nnumber of charts = ", len(y_train))
-
     return y_train, encode_step([2, 2, 2, 2]) + 1
+
+
+def lineNumToTime(bpms,priorTime):
+    """
+    :param bpms: list of lists (length 2) indicating at what times different bpms in the chart begin
+    :param priorTime: time of last line in stepchart
+    :return: time of next line in stepchart
+    """
+    precision = 32
+    i = 0
+    while priorTime < bpms[i][0]:
+        i+=1
+    bpm = bpms[i-1][1]
+    per_second = bpm * (1 / 60.0) * (precision/4)
+    increment = 1 / per_second
+    return (priorTime + increment)
+
+
+def maxBpm(bpms):
+    """
+    :param bpms: list of lists (length 2) indicating at what times different bpms in the chart begin
+    :return: max bpm that occurs in a song
+    """
+    mx = 0.0
+    for b in bpms:
+        mx = max(mx,max(b))
+    return mx
 
 
 def encode_step(step_line):
@@ -66,125 +107,72 @@ def decode_step(num):
     return list(reversed(step_line))
 
 
-def train_network():
-    """ Train a Neural Network to generate music """
-    y_train, n_vocab = load_training_data()
-
-    network_input, network_output = prepare_sequences(y_train, n_vocab)
-
-    model = create_network(network_input, n_vocab)
-
-    train(model, network_input, network_output)
-
-
-def prepare_sequences(y_train, n_vocab, sequence_length=100):
+def prepare_sequences(y_train):
     """
     Create input sequences and their outputs for the model, making sure that each sequence
     ends with a note that has at least one arrow
     :param y_train: List of list of its representing notes
-    :param n_vocab: Number of different possible notes
-    :param sequence_length: Number of notes to include in each sequence
-    :return: List of lists of notes (as ints), list of corresponding following notes
+    :return: X: List of lists (Feature vectors) for onsets in songs/charts
+             y: integer representation of next step in the chart
     """
-    network_input = []
-    network_output = []
+    X = []
+    y = []
 
+    #for track in y_train:
     for track in y_train:
-        for window_start in range(0, len(track) - sequence_length):
-            if track[window_start + sequence_length] == 0:
+        #Only doing these amounts to not get bpm (first element) and make math work for first and last elements (cant get diff for those)
+        for idx, time_step_pair in enumerate(track[:-1]):
+            #skip bpm (first element) and first tuple so math works
+            if idx == 0 or idx == 1:
                 continue
-            sequence_in = track[window_start : window_start + sequence_length]
-            sequence_out = track[window_start + sequence_length]
-            network_input.append(sequence_in)
-            network_output.append(sequence_out)
-
-    n_patterns = len(network_input)
-    print("num patterns = ", n_patterns)
-    # reshape the input into a format compatible with LSTM layers
-    network_input = np.reshape(network_input, (n_patterns, sequence_length, 1))
-    # normalize input
-    network_input = network_input / float(n_vocab)
-
-    network_output = np_utils.to_categorical(network_output, num_classes=n_vocab)
-    print("finished preparing sequences")
-    return network_input, network_output
+            bpm = track[0]
+            time_to_prev_step = track[idx][0] - track[idx - 1][0]
+            time_to_next_step = track[idx + 1][0] - track[idx][0]
+            prev_note = track[idx - 1][1]
+            curr_note = track[idx][1]
+            relativePitch = track[idx][2]
+            feature_vect = [prev_note, time_to_prev_step, time_to_next_step, bpm,relativePitch]
+            X.append(feature_vect)
+            y.append(curr_note)
+    return X, y
 
 
-def create_network(network_input, n_vocab):
-    """ create the structure of the neural network """
-    model = Sequential()
-    model.add(
-        LSTM(
-            512,
-            input_shape=(network_input.shape[1], network_input.shape[2]),
-            return_sequences=True,
-        )
-    )
-    model.add(Dropout(0.3))
-    model.add(LSTM(128, return_sequences=True))
-    # model.add(LSTM(512, return_sequences=True))
-    model.add(Dropout(0.3))
-    model.add(LSTM(128))
-    # model.add(LSTM(512))
-    model.add(Dense(64))
-    # model.add(Dense(256))
-    model.add(Dropout(0.3))
-    model.add(Dense(n_vocab))
-    model.add(Activation("softmax"))
-    model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
-    print("finished making model\n")
-    return model
+def load_decision_tree():
+    """
+    :return: decision tree model loaded from file to avoid re-training every time
+    """
+    decision_tree_pkl_filename = 'decision_tree_classifier.pkl'
+    decision_tree_model_pkl = open(decision_tree_pkl_filename, 'rb')
+    decision_tree_model = pickle.load(decision_tree_model_pkl)
+    return decision_tree_model
+
+def train_decision_tree():
+    """
+    train decision free on onset feature vectors and save to pickle file
+    """
+
+    y_train= load_training_data()
+    X, y = prepare_sequences(y_train)
+    clf_entropy = DecisionTreeClassifier(criterion="entropy", random_state=100, max_depth=200, min_samples_leaf=5)
+    clf_entropy.fit(X, y)
+
+    # Dump the trained decision tree classifier with Pickle
+    decision_tree_pkl_filename = 'decision_tree_classifier.pkl'
+    # Open the file to save as pkl file
+    decision_tree_model_pkl = open(decision_tree_pkl_filename, 'wb')
+    pickle.dump(clf_entropy, decision_tree_model_pkl)
+    # Close the pickle instances
+    decision_tree_model_pkl.close()
+
+def predict_decision_tree(dt,fv):
+    """
+    :param dt: decision tree model
+    :param fv: feature vector
+    :return: integer representation of predicted next step in chart
+    """
+    return dt.predict([fv])
 
 
-def generate_random_sequence():
-    mapping = {0: 1, 1: 3, 2: 9, 3: 27}
-    seq = np.zeros(100)
-    for i in range(len(seq)):
-        seq[i] = mapping[random.randint(0, 3)]
-    return np.reshape(seq, (1, 100, 1))
-
-
-def train(model, network_input, network_output):
-    """ train the neural network """
-    filepath = "weights-improvement-{epoch:02d}-{loss:.4f}-bigger.hdf5"
-    checkpoint = ModelCheckpoint(
-        filepath, monitor="loss", verbose=0, save_best_only=True, mode="min"
-    )
-    callbacks_list = [checkpoint]
-    print("starting to fit model")
-    model.fit(
-        network_input,
-        network_output,
-        epochs=1,
-        batch_size=1600,
-        callbacks=callbacks_list,
-    )
-    print("finished fitting model")
-
-    # serialize model to JSON
-    model_json = model.to_json()
-    with open("model.json", "w") as json_file:
-        json_file.write(model_json)
-    # serialize weights to HDF5
-    model.save_weights("model.h5")
-    print("Saved model to disk")
-
-
-
-def load_trained_model():
-    y_train, n_vocab = load_training_data()
-    network_input, network_output = prepare_sequences(y_train, n_vocab)
-    model = create_network(network_input, n_vocab)
-    model.load_weights("../neural_stepwork/my_model.h5")
-    print("starting to predict")
-    for i in range(50):
-        seq = generate_random_sequence()
-        seq = seq/(n_vocab-1)
-        prediction = model.predict(seq)
-        print(decode_step(np.argmax(prediction)))
 
 if __name__ == "__main__":
-
-    #train_network()
-    load_trained_model()
-
+    pass
