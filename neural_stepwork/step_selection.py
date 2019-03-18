@@ -18,7 +18,9 @@ def load_training_data():
     :return: y_train
     """
     difficulties = ["Hard", "Medium", "Challenge"]
-    DATA_DIR = "../training/json"
+#    cwd = os.getcwd()
+#    DATA_DIR = cwd + "/training/json"
+    DATA_DIR =  "../training/json"
     y_train = list()
     for file in os.listdir(DATA_DIR):
         if not file.endswith(".json"):
@@ -26,18 +28,43 @@ def load_training_data():
         with open(os.path.join(DATA_DIR, file)) as f:
             step_file = json.load(f)
         for track in step_file["notes"]:
-            y = []
             if track["difficulty_coarse"] not in difficulties:
                 continue
             track = track["notes"]
             if len(track) == 0:
                 continue
+            bpms = step_file['bpms']
+            y = [maxBpm(bpms)]
+            lineNum = 0
+            priorTime = 0
             for line in track:
-                y.append(encode_step(line))
+                step = encode_step(line)
+                if step != 0:
+                    time = lineNumToTime(bpms,priorTime)
+                    priorTime = time
+                    y.append((time,step))
+                lineNum += 1
             y_train.append(y)
     print("finished loading training data\nnumber of charts = ", len(y_train))
-
     return y_train, encode_step([2, 2, 2, 2]) + 1
+
+
+def lineNumToTime(bpms,priorTime):
+    precision = 32
+    i = 0
+    while priorTime < bpms[i][0]:
+        i+=1
+    bpm = bpms[i-1][1]
+    per_second = bpm * (1 / 60.0) * (precision/4)
+    increment = 1 / per_second
+    return (priorTime + increment)
+
+
+def maxBpm(bpms):
+    mx = 0.0
+    for b in bpms:
+        mx = max(mx,max(b))
+    return mx
 
 
 def encode_step(step_line):
@@ -89,34 +116,50 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
     network_input = []
     network_output = []
 
-    for track in y_train:
-        for window_start in range(0, len(track) - sequence_length):
-            if track[window_start + sequence_length] == 0:
+    #TODO: Uncomment this after testing
+    #for track in y_train:
+    for track in y_train[:10]:
+        #Only doing these amounts to not get bpm (first element) and make math work for first and last elements (cant get diff for those)
+        for idx, time_step_pair in enumerate(track[:-1]):
+            #skip bpm (first element) and first tuple so math works
+            if idx == 0 or idx == 1:
                 continue
-            sequence_in = track[window_start : window_start + sequence_length]
-            sequence_out = track[window_start + sequence_length]
-            network_input.append(sequence_in)
-            network_output.append(sequence_out)
 
-    n_patterns = len(network_input)
-    print("num patterns = ", n_patterns)
-    # reshape the input into a format compatible with LSTM layers
-    network_input = np.reshape(network_input, (n_patterns, sequence_length, 1))
+
+            bpm = track[0]
+            time_to_prev_step = track[idx][0] - track[idx - 1][0]
+            time_to_next_step = track[idx + 1][0] - track[idx][0]
+            prev_note = track[idx - 1][1]
+            curr_note = track[idx][1]
+            feature_vect = [prev_note, time_to_prev_step, time_to_next_step, bpm]
+            network_input.append(feature_vect)
+            network_output.append(curr_note)
+
     # normalize input
-    network_input = network_input / float(n_vocab)
+    # network_input = np.asarray(network_input)
+    # network_input_normed = network_input / network_input.max(axis=0)
+    # network_input_normed = np.tolist(network_input_normed)
 
     network_output = np_utils.to_categorical(network_output, num_classes=n_vocab)
     print("finished preparing sequences")
+    # print(network_output[0])
+    # print(network_output[1])
+    # print(network_output[2])
+    print(network_input[0])
+    print(network_input[1])
     return network_input, network_output
 
 
 def create_network(network_input, n_vocab):
     """ create the structure of the neural network """
+
+    #print("Network input shape",network_input.shape[0],network_input.shape[1], network_input.shape[2])
+
     model = Sequential()
     model.add(
         LSTM(
             512,
-            input_shape=(network_input.shape[1], network_input.shape[2]),
+            input_dim=(len(network_input[0])),
             return_sequences=True,
         )
     )
@@ -131,7 +174,7 @@ def create_network(network_input, n_vocab):
     model.add(Dropout(0.3))
     model.add(Dense(n_vocab))
     model.add(Activation("softmax"))
-    model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
+    model.compile(loss="categorical_crossentropy", optimizer="rmsprop", metrics=['acc'])
     print("finished making model\n")
     return model
 
@@ -155,8 +198,8 @@ def train(model, network_input, network_output):
     model.fit(
         network_input,
         network_output,
-        epochs=1,
-        batch_size=1600,
+        epochs=3,
+        batch_size=64,
         callbacks=callbacks_list,
     )
     print("finished fitting model")
@@ -185,6 +228,5 @@ def load_trained_model():
 
 if __name__ == "__main__":
 
-    #train_network()
-    load_trained_model()
-
+    train_network()
+    #load_trained_model()
