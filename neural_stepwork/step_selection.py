@@ -118,7 +118,7 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
 
     #TODO: Uncomment this after testing
     #for track in y_train:
-    for track in y_train[:10]:
+    for track in y_train:
         #Only doing these amounts to not get bpm (first element) and make math work for first and last elements (cant get diff for those)
         for idx, time_step_pair in enumerate(track[:-1]):
             #skip bpm (first element) and first tuple so math works
@@ -136,8 +136,10 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
             network_output.append(curr_note)
 
     # normalize input
-    # network_input = np.asarray(network_input)
-    # network_input_normed = network_input / network_input.max(axis=0)
+    network_input = np.asarray(network_input)
+    network_input = network_input / network_input.max(axis=0)
+    network_input = network_input.reshape(len(network_input), 1, len(network_input[0]))
+
     # network_input_normed = np.tolist(network_input_normed)
 
     network_output = np_utils.to_categorical(network_output, num_classes=n_vocab)
@@ -145,8 +147,9 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
     # print(network_output[0])
     # print(network_output[1])
     # print(network_output[2])
+    print(network_input)
     print(network_input[0])
-    print(network_input[1])
+
     return network_input, network_output
 
 
@@ -159,7 +162,7 @@ def create_network(network_input, n_vocab):
     model.add(
         LSTM(
             512,
-            input_dim=(len(network_input[0])),
+            input_shape=(network_input.shape[1], network_input.shape[2]),
             return_sequences=True,
         )
     )
@@ -198,7 +201,7 @@ def train(model, network_input, network_output):
     model.fit(
         network_input,
         network_output,
-        epochs=3,
+        epochs=30,
         batch_size=64,
         callbacks=callbacks_list,
     )
