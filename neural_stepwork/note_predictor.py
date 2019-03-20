@@ -59,7 +59,7 @@ def generate_steps(model, n_vocab, onsets):
     """ Generate notes from the neural network based on a sequence of notes """
 
     #Start with 100 zeros
-    pattern = [0] * 100
+    pattern = [0]
     prediction_output = []
 
     # generate steps for rest of song
