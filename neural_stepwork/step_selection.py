@@ -8,27 +8,30 @@ from keras.layers import LSTM
 from keras.layers import Activation
 from keras.utils import np_utils
 from keras.callbacks import ModelCheckpoint
+from pitch_change import pitch_change
 
 import random
 
-
 def load_training_data():
     """
-    y_train is a list of lists, and each list is a simfile chart as a series of ints (each int maps to a possible step line)
-    :return: y_train
+    :return: y_train, which is a list (each song) of lists (every onset in song) of lists (features at each onset)
+             **first element in each song's list is song bpm
     """
-    difficulties = ["Hard", "Medium", "Challenge"]
-#    cwd = os.getcwd()
-#    DATA_DIR = cwd + "/training/json"
+    difficulties = ["hard", "medium", "challenge"]
+    #cwd = os.getcwd()
+    #DATA_DIR = cwd + "/training/json"
     DATA_DIR =  "../training/json"
     y_train = list()
-    for file in os.listdir(DATA_DIR):
+    #print("i got here too")
+    for file in os.listdir(DATA_DIR)[:20]:
+        #print("get here")
         if not file.endswith(".json"):
             continue
         with open(os.path.join(DATA_DIR, file)) as f:
             step_file = json.load(f)
         for track in step_file["notes"]:
-            if track["difficulty_coarse"] not in difficulties:
+            rating = track["difficulty_coarse"].lower()
+            if rating not in difficulties:
                 continue
             track = track["notes"]
             if len(track) == 0:
@@ -37,19 +40,72 @@ def load_training_data():
             y = [maxBpm(bpms)]
             lineNum = 0
             priorTime = 0
+            times = []
             for line in track:
                 step = encode_step(line)
                 if step != 0:
                     time = lineNumToTime(bpms,priorTime)
+                    times.append(time)
                     priorTime = time
-                    y.append((time,step))
+                    y+=[[time,step,0]]
                 lineNum += 1
-            y_train.append(y)
+            name = os.path.basename(file).split(".json")[0]
+            path = "../training/raw" + "/" + name + "/" + name + ".wav"
+            print(52,path)
+            try:
+                pitches = pitch_change(path, times,rating)
+                for i in range(1,len(pitches)):
+                    y[i][2]=pitches[i]
+                y_train.append(y)
+            except:
+                print("I excepted out")
+                continue
     print("finished loading training data\nnumber of charts = ", len(y_train))
     return y_train, encode_step([2, 2, 2, 2]) + 1
 
+# def load_training_data():
+#     """
+#     y_train is a list of lists, and each list is a simfile chart as a series of ints (each int maps to a possible step line)
+#     :return: y_train
+#     """
+#     difficulties = ["Hard", "Medium", "Challenge"]
+# #    cwd = os.getcwd()
+# #    DATA_DIR = cwd + "/training/json"
+#     DATA_DIR =  "../training/json"
+#     y_train = list()
+#     for file in os.listdir(DATA_DIR):
+#         if not file.endswith(".json"):
+#             continue
+#         with open(os.path.join(DATA_DIR, file)) as f:
+#             step_file = json.load(f)
+#         for track in step_file["notes"]:
+#             if track["difficulty_coarse"] not in difficulties:
+#                 continue
+#             track = track["notes"]
+#             if len(track) == 0:
+#                 continue
+#             bpms = step_file['bpms']
+#             y = [maxBpm(bpms)]
+#             lineNum = 0
+#             priorTime = 0
+#             for line in track:
+#                 step = encode_step(line)
+#                 if step != 0:
+#                     time = lineNumToTime(bpms,priorTime)
+#                     priorTime = time
+#                     y.append((time,step))
+#                 lineNum += 1
+#             y_train.append(y)
+#     print("finished loading training data\nnumber of charts = ", len(y_train))
+#     return y_train, encode_step([2, 2, 2, 2]) + 1
+
 
 def lineNumToTime(bpms,priorTime):
+    """
+    :param bpms: list of lists (length 2) indicating at what times different bpms in the chart begin
+    :param priorTime: time of last line in stepchart
+    :return: time of next line in stepchart
+    """
     precision = 32
     i = 0
     while priorTime < bpms[i][0]:
@@ -61,6 +117,10 @@ def lineNumToTime(bpms,priorTime):
 
 
 def maxBpm(bpms):
+    """
+    :param bpms: list of lists (length 2) indicating at what times different bpms in the chart begin
+    :return: max bpm that occurs in a song
+    """
     mx = 0.0
     for b in bpms:
         mx = max(mx,max(b))
@@ -125,19 +185,19 @@ def prepare_sequences(y_train, n_vocab, sequence_length=100):
             if idx == 0 or idx == 1:
                 continue
 
-
             bpm = track[0]
             time_to_prev_step = track[idx][0] - track[idx - 1][0]
             time_to_next_step = track[idx + 1][0] - track[idx][0]
             prev_note = track[idx - 1][1]
             curr_note = track[idx][1]
-            feature_vect = [prev_note, time_to_prev_step, time_to_next_step, bpm]
+            relativePitch = track[idx][2]
+            feature_vect = [prev_note, time_to_prev_step, time_to_next_step, bpm, relativePitch]
+            #feature_vect = [prev_note, time_to_prev_step, time_to_next_step, bpm]
             network_input.append(feature_vect)
             network_output.append(curr_note)
 
-    # normalize input
+    # reshape input array
     network_input = np.asarray(network_input)
-    network_input = network_input / network_input.max(axis=0)
     network_input = network_input.reshape(len(network_input), 1, len(network_input[0]))
 
     # network_input_normed = np.tolist(network_input_normed)
@@ -201,7 +261,7 @@ def train(model, network_input, network_output):
     model.fit(
         network_input,
         network_output,
-        epochs=30,
+        epochs=25,
         batch_size=64,
         callbacks=callbacks_list,
     )
