@@ -1,5 +1,5 @@
 # Neural-Stepwork
 Tool to automatically generate .sm files (step charts) from music
 
-#Sample Usage in Terminal
-python neural_stepwork.py --file songs/Nekozilla.wav -rating hard
+# Sample Command Line Usage
+python neural_stepwork.py --file Nekozilla.wav --rating hard
