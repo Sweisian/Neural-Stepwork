@@ -74,6 +74,7 @@ def write_simfile(
     artist="Unknown Artist",
     source="Sorce Unavailable",
     offset=-0.000_000,
+    rating='hard'
 ):
     """
     Writes a sim file that can be imported into StepMania
@@ -88,5 +89,5 @@ def write_simfile(
     # Make sure the file exists and is empty
     open(file, "w").close()
     write_metadata(file, title, artist, source, offset, bpm)
-    write_notes_header(file)
+    write_notes_header(file,rating=rating)
     write_notes(file, notes)
